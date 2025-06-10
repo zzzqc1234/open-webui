@@ -2,6 +2,7 @@
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { getContext, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy } from "svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -12,6 +13,8 @@
 	export let params = {
 		// Advanced
 		stream_response: null, // Set stream responses for this model individually
+		attestation: 'disable',
+		attestationtype: null,
 		function_calling: null,
 		seed: null,
 		stop: null,
@@ -41,9 +44,52 @@
 	let customFieldName = '';
 	let customFieldValue = '';
 
+	import { models, settings, theme, user } from '$lib/stores';
 	$: if (params) {
 		dispatch('change', params);
 	}
+	params = { ...params, ...$settings.params };
+	
+	import { typeflag,attest_adr } from '$lib/stores';
+	import Chat from '$lib/components/chat/Chat.svelte';
+        let ATTEST_SERVICE_ENDPOINT;
+        attest_adr.subscribe(value => (ATTEST_SERVICE_ENDPOINT = value));
+        let att_type;
+        typeflag.subscribe(value => (att_type = value));
+	
+	let selectedValue = 'ali';
+	let ali_input = ATTEST_SERVICE_ENDPOINT;
+	let trustee_input = '';
+	let showInput = true;
+	function handleSelectChange(event) {
+		selectedValue = event.target.value;
+		if (selectedValue === 'ali'){
+			showInput = true;
+			params.attestationtype = 'ali';
+			attest_adr.set(ali_input);
+			typeflag.set("Ali")
+		}
+		else if (selectedValue === 'trustee'){
+			showInput = true;
+			params.attestationtype = 'trustee';
+			attest_adr.set(trustee_input);
+			typeflag.set("trustee")
+		}
+		else {
+			showInput = false;
+			params.attestationtype = value;
+		}
+		$settings.params = {...$settings.params, ...params};
+	  }
+	
+
+	function handleCustomInput() {
+	    if (customInput.trim()) {
+	      selectedValue = customInput;
+	      showInput = false;
+	    }
+	  }
+
 </script>
 
 <div class=" space-y-1 text-xs pb-safe-bottom">
@@ -129,7 +175,8 @@
 					class="p-1 px-3 text-xs flex rounded-sm transition shrink-0 outline-hidden"
 					type="button"
 					on:click={() => {
-						params.seed = (params?.seed ?? null) === null ? 0 : null;
+						params.seed = (params?.seed ?? null) === null ? 0 : params.seed;
+						$settings.params = {...$settings.params, ...params};
 					}}
 				>
 					{#if (params?.seed ?? null) === null}
@@ -149,6 +196,7 @@
 						type="number"
 						placeholder={$i18n.t('Enter Seed')}
 						bind:value={params.seed}
+						on:change={(e) => {$settings.params.seed=params.seed}}
 						autocomplete="off"
 						min="0"
 					/>
@@ -1169,6 +1217,108 @@
 			</div>
 		{/if}
 	</div>
+
+	<div>
+		<Tooltip
+			content={$i18n.t(
+				'When enabled, the chat session will attestate the remote environment running model service. Local: using local quote verification service, Remote: using remote verifiation service, need to configure Remote Verfication Service Address. Now only Intel TDX support.'
+			)}
+			placement="top-start"
+			className="inline-tooltip"
+		>
+			<div class=" py-0.5 flex w-full justify-between">
+				<div class=" self-center text-xs font-medium">
+					{$i18n.t('Remote Attestation Mode')}
+				</div>
+				<button
+					class="flex items-center px-3 py-1 rounded-sm transition-colors text-xs"
+					class:bg-red-100={params?.attestation === 'disable'}
+					class:dark:bg-red-800={params.attestation === 'disable'}
+					class:text-red-700={params.attestation === 'disable'}
+					class:dark:text-red-200={params.attestation === 'disable'}
+					
+					class:bg-green-100={params.attestation === 'enable'}
+					class:dark:bg-green-800={params.attestation === 'enable'}
+					class:text-green-700={params.attestation === 'enable'}
+					class:dark:text-green-200={params.attestation === 'enable'}
+					
+					on:click={() => {
+						params.attestation = params.attestation === 'disable' ? 'enable' : 'disable';
+						$settings.params = {...$settings.params, ...params};
+					}}
+					type="button"
+				>
+					<span class="ml-2">
+					{#if params.attestation === 'disable'}
+						{$i18n.t('Disable')}
+					{:else}
+						{$i18n.t('Enable')}
+					{/if}
+					</span>
+				</button>
+			</div>
+		</Tooltip>
+	</div>
+
+	<div class=" py-0.5 w-full justify-between">
+		<Tooltip
+			content={$i18n.t(
+			    'Sets attestation Type. Default as Ali'
+			)}
+			placement="top-start"
+			className="inline-tooltip"
+		>
+			<div class="flex w-full justify-between">
+				<div class=" self-center text-xs font-medium">
+					{$i18n.t('Attesation Service Type')}
+				</div>
+				<style>
+					select {
+					  padding-right: 1px;
+					  width: 60px;
+					  height: 25px;
+					  font-size: 14px;
+					}
+				  </style>
+				  
+				<select
+				    disabled={(params?.attestation ?? null) === 'disable' ? true : false}
+				    bind:value={selectedValue} on:change={handleSelectChange}>
+				    <option value="ali"><span class="ml-2 self-center"> Ali </span></option>
+				    <option value="trustee"><span class="ml-2 self-center"> Trustee </span></option>
+				</select>
+			</div>
+		</Tooltip>
+
+		{#if (params?.attestationtype ?? null) !== null}
+		    {#if (params.attestationtype === 'ali') && showInput}
+  				<div class="flex mt-0.5 space-x-2">
+  					<div class=" flex-1">
+  						<input
+  							class="w-full rounded-lg py-2 px-1 text-sm dark:text-gray-300 dark:bg-gray-850 outline-hidden"
+  							type="text"
+  							bind:value={ali_input}
+  							autocomplete="off"
+  						/>
+  					</div>
+  				</div>
+		    {:else}
+			        <div class="flex mt-0.5 space-x-2">
+ 					<div class=" flex-1">
+						 <input
+                                                        class="w-full rounded-lg py-2 px-1 text-sm dark:text-gray-300 dark:bg-gray-850 outline-hidden"
+                                                        type="text"
+                                                        placeholder='http://127.0.0.1:9090/verify_quote/trustee'
+                                                        bind:value={trustee_input}
+                                                        autocomplete="off"
+                                                />
+                                        </div>
+                                </div>
+
+		    {/if}
+		{/if}
+	</div>
+
 
 	{#if admin}
 		<div class=" py-0.5 w-full justify-between">

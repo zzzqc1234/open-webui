@@ -42,7 +42,6 @@
 	// Advanced
 	let requestFormat = '';
 	let keepAlive: string | null = null;
-
 	let params = {
 		// Advanced
 		stream_response: null,
@@ -267,7 +266,7 @@
 				</div>
 
 				{#if showAdvanced}
-					<AdvancedParams admin={$user?.role === 'admin'} bind:params />
+					<AdvancedParams admin={$user?.role === 'admin'}  bind:params />
 					<hr class=" border-gray-100 dark:border-gray-850" />
 
 					<div class=" py-1 w-full justify-between">
@@ -371,7 +370,9 @@
 						use_mmap: params.use_mmap !== null ? params.use_mmap : undefined,
 						use_mlock: params.use_mlock !== null ? params.use_mlock : undefined,
 						num_thread: params.num_thread !== null ? params.num_thread : undefined,
-						num_gpu: params.num_gpu !== null ? params.num_gpu : undefined
+						num_gpu: params.num_gpu !== null ? params.num_gpu : undefined,
+						attestation: params.attestation !== null ? params.attestation : undefined,
+						attestationtype: params.attestationtype !== null ? params.attestationtype : undefined
 					},
 					keepAlive: keepAlive ? (isNaN(keepAlive) ? keepAlive : parseInt(keepAlive)) : undefined
 				});

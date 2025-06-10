@@ -25,8 +25,14 @@ import axios from 'axios';
 import jsonwebtoken from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
 import { jwtDecode } from 'jwt-decode';
+import { attest_adr,verify_adr, typeflag } from '../../src/lib/stores/index.ts';
 
-const ATTEST_SERVICE_ENDPOINT = "https://attest.cn-beijing.aliyuncs.com/v1/attestation";
+let ATTEST_SERVICE_ENDPOINT;
+let verifyToken;
+let ast_type;
+attest_adr.subscribe(value => (ATTEST_SERVICE_ENDPOINT = value));
+verify_adr.subscribe(value => (verifyToken = value));
+typeflag.subscribe(value => (ast_type =value));
 
 export async function attest(quote) {
 	const quotebase64 = Buffer.from(quote).toString('base64');
@@ -41,12 +47,13 @@ export async function attest(quote) {
 
 	const req = {
 		// empty policy_ids means only check the cryptographic integrity of the evidence
-		"policy_ids": [],
 		"tee": "tdx",
 		"evidence": evidencebase64,
+		"policy_ids": [],
 	}
+	console.log("CHECK ATTEST_address: ", ATTEST_SERVICE_ENDPOINT);
+	console.log("CHECK ATTEST_type: ", ast_type);
 	const response = await axios.post(ATTEST_SERVICE_ENDPOINT, req);
-
 	return response.data;
 }
 
@@ -58,7 +65,8 @@ export async function decode_apprasial_token(token) {
 
 export async function verify_apprasial_token(token) {
 	const client = jwksClient({
-		jwksUri: 'https://attest.cn-beijing.aliyuncs.com/jwks.json',
+		// jwksUri: 'https://attest.cn-beijing.aliyuncs.com/jwks.json',
+		jwksUrl: verifyToken
 	});
 	const key = await client.getSigningKey();
 	const publicKey = key.getPublicKey();

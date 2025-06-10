@@ -5,7 +5,9 @@ import type { Banner } from '$lib/types';
 import type { Socket } from 'socket.io-client';
 
 import emojiShortCodes from '$lib/emoji-shortcodes.json';
-
+export const typeflag = writable();
+export const attest_adr = writable("https://attest.cn-beijing.aliyuncs.com/v1/attestation");
+export const verify_adr = writable("https://attest.cn-beijing.aliyuncs.com/jwks.json");
 // Backend
 export const WEBUI_NAME = writable(APP_NAME);
 export const config: Writable<Config | undefined> = writable(undefined);

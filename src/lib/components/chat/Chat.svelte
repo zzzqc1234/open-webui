@@ -13,7 +13,7 @@
 	import { get, type Unsubscriber, type Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
 	import { WEBUI_BASE_URL } from '$lib/constants';
-        // acs-attest-client library
+	// acs-attest-client library
 	import * as acs_attest_client from 'acs-attest-client';	
 	import moment from 'moment';
 
@@ -89,7 +89,7 @@
 	import Placeholder from './Placeholder.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
 	import Spinner from '../common/Spinner.svelte';
-
+	import { typeflag,attest_adr } from '$lib/stores';
 	export let chatIdProp = '';
 
 	let loading = false;
@@ -646,83 +646,90 @@
 	};
 
 	// TEE Quote Verification Function
+	let attestAdress;
+	attest_adr.subscribe(value => (attestAdress = value));
+	console.log("CHECK attestAdress: ", attestAdress);
+	let attestType;
+	typeflag.subscribe(value => (attestType = value));
+	console.log("CHECK attestType: ", attestType);
+
 	let _pendingQuoteUpdate = false;
-        const teeQuoteVerify = async () => {
-            const ENABLE_TEE = true;
-	    if (!ENABLE_TEE || _pendingQuoteUpdate) 
-		return;
-	    const hexToBytes = (hexString) => {
-		hexString = hexString.replaceAll(' ', '');
-		if (hexString.length % 2 !== 0) {
-		    throw new Error("Hex string length must be a multiple of 2");
-		}
-		const bytes = [];
-		for (let i = 0; i < hexString.length; i += 2) {
-		    bytes.push(parseInt(hexString.substr(i, 2), 16));
-		}
-		return new Uint8Array(bytes);
+	const teeQuoteVerify = async () => {
+		const ENABLE_TEE = true;
+		if (!ENABLE_TEE || _pendingQuoteUpdate) 
+			return;
+		const hexToBytes = (hexString) => {
+			hexString = hexString.replaceAll(' ', '');
+			if (hexString.length % 2 !== 0) {
+				throw new Error("Hex string length must be a multiple of 2");
+			}
+			const bytes = [];
+			for (let i = 0; i < hexString.length; i += 2) {
+				bytes.push(parseInt(hexString.substr(i, 2), 16));
+			}
+			return new Uint8Array(bytes);
 	    };
 
-	    try {
-		_pendingQuoteUpdate = true;
-		attestationInfo = null;
-		attestationValid = false;
-		const _quote_hex = await getQuote(localStorage.token);
-		const quote = hexToBytes(_quote_hex);
-		const token = await acs_attest_client.attest(quote);
-		const jwtclaims = await acs_attest_client.decode_apprasial_token(token);
-		let tmpInfo = {};
+		try {
+			_pendingQuoteUpdate = true;
+			attestationInfo = null;
+			attestationValid = false;
+			const _quote_hex = await getQuote(localStorage.token);
+			const quote = hexToBytes(_quote_hex);
+			const token = await acs_attest_client.attest(quote);
+			const jwtclaims = await acs_attest_client.decode_apprasial_token(token);
+			let tmpInfo = {};
 
-		const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		tmpInfo.jti = jwtclaims.jti;
-		tmpInfo.tee = jwtclaims.tee;
-		tmpInfo.exp = moment((jwtclaims.exp)*1000).format('YYYY-MM-DD HH:mm:ss ')+timeZone;
-		tmpInfo.iat = moment((jwtclaims.iat)*1000).format('YYYY-MM-DD HH:mm:ss ')+timeZone;
-		const tmp_tcbinfo = JSON.parse(jwtclaims['tcb-status']);
-		tmpInfo.mr_td = tmp_tcbinfo['tdx.quote.body.mr_td'];
-		tmpInfo.rtmr_0 = tmp_tcbinfo['tdx.quote.body.rtmr_0'];
-		tmpInfo.rtmr_1 = tmp_tcbinfo['tdx.quote.body.rtmr_1'];
-		tmpInfo.rtmr_2 = tmp_tcbinfo['tdx.quote.body.rtmr_2'];
-		tmpInfo.rtmr_3 = tmp_tcbinfo['tdx.quote.body.rtmr_3'];
-		tmpInfo.mr_seam = tmp_tcbinfo['tdx.quote.body.mr_seam'];
-		tmpInfo.seam_attributes = tmp_tcbinfo['tdx.quote.body.seam_attributes'];
-		tmpInfo.td_attributes = tmp_tcbinfo['tdx.quote.body.td_attributes'];
-		tmpInfo.xfam = tmp_tcbinfo['tdx.quote.body.xfam'];
+			const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			tmpInfo.jti = jwtclaims.jti;
+			tmpInfo.tee = jwtclaims.tee;
+			tmpInfo.exp = moment((jwtclaims.exp)*1000).format('YYYY-MM-DD HH:mm:ss ')+timeZone;
+			tmpInfo.iat = moment((jwtclaims.iat)*1000).format('YYYY-MM-DD HH:mm:ss ')+timeZone;
+			const tmp_tcbinfo = JSON.parse(jwtclaims['tcb-status']);
+			tmpInfo.mr_td = tmp_tcbinfo['tdx.quote.body.mr_td'];
+			tmpInfo.rtmr_0 = tmp_tcbinfo['tdx.quote.body.rtmr_0'];
+			tmpInfo.rtmr_1 = tmp_tcbinfo['tdx.quote.body.rtmr_1'];
+			tmpInfo.rtmr_2 = tmp_tcbinfo['tdx.quote.body.rtmr_2'];
+			tmpInfo.rtmr_3 = tmp_tcbinfo['tdx.quote.body.rtmr_3'];
+			tmpInfo.mr_seam = tmp_tcbinfo['tdx.quote.body.mr_seam'];
+			tmpInfo.seam_attributes = tmp_tcbinfo['tdx.quote.body.seam_attributes'];
+			tmpInfo.td_attributes = tmp_tcbinfo['tdx.quote.body.td_attributes'];
+			tmpInfo.xfam = tmp_tcbinfo['tdx.quote.body.xfam'];
 
-		let ui_displayInfo = JSON.parse(JSON.stringify(tmpInfo));
-		Object.assign(ui_displayInfo,{'mr_condif_id':tmp_tcbinfo['tdx.quote.body.mr_config_id'],
-					'mr_owner':tmp_tcbinfo['tdx.quote.body.mr_owner'],
-					'mr_owner_config':tmp_tcbinfo['tdx.quote.body.mr_owner_config'],
-					'mrsigner_seam':tmp_tcbinfo['tdx.quote.body.mrsigner_seam'],
-					'mr_servicetd':tmp_tcbinfo['tdx.quote.body.mr_servicetd'],
-					'tcb_svn':tmp_tcbinfo['tdx.quote.body.tcb_svn'],
-					'tee_tcb_svn2':tmp_tcbinfo['tdx.quote.body.tee_tcb_svn2'],
-					'att_key_type':tmp_tcbinfo['tdx.quote.header.att_key_type'],
-					'tee_type':tmp_tcbinfo['tdx.quote.header.tee_type'],
-					'user_data':tmp_tcbinfo['tdx.quote.header.user_data'],
-					'vendor_id':tmp_tcbinfo['tdx.quote.header.vendor_id'],
-					'version':tmp_tcbinfo['tdx.quote.header.version'],
-					'type':tmp_tcbinfo['tdx.quote.type'],
-					'td_attributes.debug':tmp_tcbinfo['tdx.td_attributes.debug'],
-					'td_attributes.key_locker':tmp_tcbinfo['tdx.td_attributes.key_locker'],
-					'td_attributes.perfmon':tmp_tcbinfo['tdx.td_attributes.perfmon'],
-					'td_attributes.protection_keys':tmp_tcbinfo['tdx.td_attributes.protection_keys'],
-					'td_attributes.septve_disable':tmp_tcbinfo['tdx.td_attributes.septve_disable']
-			});
-		console.log("Attestation Display info:",tmpInfo);
-		console.log("ALL Attestation info",ui_displayInfo);
-		attestationInfo = tmpInfo;
-		attestationValid = true;
-	    } catch (error) {
-		attestationInfo = {
-		    error: error,
-		    timestamp: Date.now()
+			let ui_displayInfo = JSON.parse(JSON.stringify(tmpInfo));
+			Object.assign(ui_displayInfo,{'mr_condif_id':tmp_tcbinfo['tdx.quote.body.mr_config_id'],
+						'mr_owner':tmp_tcbinfo['tdx.quote.body.mr_owner'],
+						'mr_owner_config':tmp_tcbinfo['tdx.quote.body.mr_owner_config'],
+						'mrsigner_seam':tmp_tcbinfo['tdx.quote.body.mrsigner_seam'],
+						'mr_servicetd':tmp_tcbinfo['tdx.quote.body.mr_servicetd'],
+						'tcb_svn':tmp_tcbinfo['tdx.quote.body.tcb_svn'],
+						'tee_tcb_svn2':tmp_tcbinfo['tdx.quote.body.tee_tcb_svn2'],
+						'att_key_type':tmp_tcbinfo['tdx.quote.header.att_key_type'],
+						'tee_type':tmp_tcbinfo['tdx.quote.header.tee_type'],
+						'user_data':tmp_tcbinfo['tdx.quote.header.user_data'],
+						'vendor_id':tmp_tcbinfo['tdx.quote.header.vendor_id'],
+						'version':tmp_tcbinfo['tdx.quote.header.version'],
+						'type':tmp_tcbinfo['tdx.quote.type'],
+						'td_attributes.debug':tmp_tcbinfo['tdx.td_attributes.debug'],
+						'td_attributes.key_locker':tmp_tcbinfo['tdx.td_attributes.key_locker'],
+						'td_attributes.perfmon':tmp_tcbinfo['tdx.td_attributes.perfmon'],
+						'td_attributes.protection_keys':tmp_tcbinfo['tdx.td_attributes.protection_keys'],
+						'td_attributes.septve_disable':tmp_tcbinfo['tdx.td_attributes.septve_disable']
+				});
+			console.log("Attestation Display info:",tmpInfo);
+			console.log("ALL Attestation info",ui_displayInfo);
+			attestationInfo = tmpInfo;
+			attestationValid = true;
+		} catch (error) {
+			attestationInfo = {
+			error: error,
+			timestamp: Date.now()
 		};
 		attestationValid = false;
 		console.log('teeQuoteVerify error:', attestationInfo);
-	    } finally {
+		} finally {
 		_pendingQuoteUpdate = false;
-	    }
+		}
 	};
 
 	//////////////////////////
